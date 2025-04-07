@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "Browser Tab Manager",
+    "version": "1.0",
+    "action": {
+        "default_popup": "index.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "permissions": [ "tabs" ],
+    "host_permissions": [ "<all_urls>" ]
+}

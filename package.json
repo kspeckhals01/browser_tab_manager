@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "@types/chrome": "^0.0.313",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite-plugin-static-copy": "^2.3.0"
+  }
+}

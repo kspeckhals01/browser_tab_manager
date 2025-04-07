@@ -1,10 +1,37 @@
-import { defineConfig } from 'vite';
-import plugin from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
-// https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [plugin()],
+    plugins: [
+        react(),
+        viteStaticCopy({
+            targets: [
+                {
+                    src: 'manifest.json',
+                    dest: '.' // Copies it directly to /build
+                }
+            ]
+        })
+    ],
+    build: {
+        outDir: 'build',
+        rollupOptions: {
+            input: {
+                popup: resolve(__dirname, 'index.html'),         // React popup
+                background: resolve(__dirname, 'src/background.ts') // Service worker
+            },
+            output: {
+                entryFileNames: chunk => {
+                    return chunk.name === 'background'
+                        ? 'background.js'
+                        : 'assets/[name].js'
+                }
+            }
+        }
+    },
     server: {
-        port: 55505,
+        port: 55505
     }
 })
