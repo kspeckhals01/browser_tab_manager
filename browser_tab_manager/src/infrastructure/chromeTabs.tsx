@@ -1,8 +1,12 @@
-// src/infrastructure/chromeTabs.ts
 import { Tab } from '../domain/Tab';
 
 export async function fetchAllTabs(): Promise<Tab[]> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+        if (!chrome?.tabs?.query) {
+            console.error('chrome.tabs.query is not available');
+            return resolve([]);
+        }
+
         chrome.tabs.query({}, (tabs) => {
             resolve(
                 tabs.map((t) => ({
