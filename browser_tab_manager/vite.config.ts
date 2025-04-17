@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
-import { viteStaticCopy } from 'vite-plugin-static-copy'
+﻿import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
     plugins: [
@@ -10,12 +10,21 @@ export default defineConfig({
             targets: [
                 {
                     src: 'manifest.json',
-                    dest: '.' // Copies it directly to /build
+                    dest: '.' // ✅ Copy manifest.json to /build
                 },
                 {
                     src: 'public/icons',
-                    dest: '.'
-                }
+                    dest: '.' // ✅ Copy icons to /build/icons
+                },
+                {
+                    src: 'login.html',
+                    dest: '.' // ✅ Copy login.html to /build
+                },
+                // If you need upgrade.html too, uncomment:
+                // {
+                //   src: 'upgrade.html',
+                //   dest: '.'
+                // }
             ]
         })
     ],
@@ -23,14 +32,21 @@ export default defineConfig({
         outDir: 'build',
         rollupOptions: {
             input: {
-                popup: resolve(__dirname, 'index.html'),         // React popup
-                background: resolve(__dirname, 'src/background.ts') // Service worker
+                popup: resolve(__dirname, 'index.html'),
+                background: resolve(__dirname, 'src/background.ts'),
+                loginScript: resolve(__dirname, 'src/scripts/login-init.ts')
             },
             output: {
                 entryFileNames: chunk => {
-                    return chunk.name === 'background'
-                        ? 'background.js'
-                        : 'assets/[name].js'
+                    if (chunk.name === 'background') {
+                        return 'background.js';
+                    }
+
+                    if (chunk.name === 'loginScript') {
+                        return 'scripts/login-init.js';
+                    }
+
+                    return 'assets/[name].js';
                 }
             }
         }
@@ -38,4 +54,4 @@ export default defineConfig({
     server: {
         port: 55505
     }
-})
+});

@@ -9,6 +9,10 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="supabase\functions\create-checkout-session\**" />
+    <TypeScriptConfiguration Remove="supabase\functions\create-checkout-session\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Folder Include="public\icons\" />
   </ItemGroup>
 </Project>

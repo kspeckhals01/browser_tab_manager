@@ -1,1 +1,1 @@
-chrome.runtime.onInstalled.addListener(()=>{console.log("Extension installed")});
+chrome.runtime.onInstalled.addListener(async e=>{e.reason==="install"&&(await chrome.storage.local.set({tier:"free"}),console.log("Tabvana installed: tier set to free"))});chrome.runtime.onStartup.addListener(async()=>{const{tier:e}=await chrome.storage.local.get("tier");e||(await chrome.storage.local.set({tier:"free"}),console.log("Startup fallback: tier set to free"))});
