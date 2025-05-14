@@ -2,6 +2,7 @@
     "manifest_version": 3,
     "name": "Tabvana",
     "version": "0.1",
+    "description": "Organize, save, and restore your tabs with ease. Eliminate clutter and boost productivity with Tabvana.",
     "action": {
         "default_popup": "index.html",
         "default_icon": {
@@ -12,9 +13,9 @@
         "default_title": "Tabvana"
     },
     "background": {
-        "service_worker": "background.js"
+        "scripts": [ "background.js" ]
     },
-    "permissions": [ "tabs", "storage", "identity" ],
+    "permissions": [ "tabs", "storage" ],
     "icons": {
         "16": "icons/icon16.png",
         "32": "icons/icon32.png",
@@ -26,5 +27,11 @@
             "resources": [ "scripts/login-init.js", "login.html" ],
             "matches": [ "<all_urls>" ]
         }
-    ]
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "baconneckapplications@gmail.com",
+            "strict_min_version": "109.0"
+        }
+    }
 }

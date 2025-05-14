@@ -102,11 +102,11 @@ export default function SaveGroupView() {
     }
 
     return (
-
-        <div className="space-y-4">
+        <div className="space-y-4 p-4">
+            {/* Header + Input */}
             <div>
                 {groupCount > 0 && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
                         {tier === 'free'
                             ? `You have ${groupCount} of 2 groups.`
                             : `You have ${groupCount} saved ${groupCount === 1 ? 'group' : 'groups'}.`}
@@ -118,32 +118,37 @@ export default function SaveGroupView() {
                     placeholder="Group name"
                     value={groupName}
                     onChange={(e) => setGroupName(e.target.value)}
-                    className="w-full px-3 py-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
 
+            {/* Tabs List */}
             <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {tabs.map((tab) => (
                     <label
                         key={tab.id}
-                        className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-600 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                     >
                         <input
                             type="checkbox"
                             checked={selectedIds.includes(tab.id!)}
                             onChange={() => toggleSelect(tab.id!)}
+                            className="accent-blue-600"
                         />
                         {tab.favIconUrl && (
                             <img src={tab.favIconUrl} alt="favicon" className="w-4 h-4" />
                         )}
-                        <span className="text-sm truncate">{tab.title || tab.url}</span>
+                        <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                            {tab.title || tab.url}
+                        </span>
                     </label>
                 ))}
             </div>
 
+            {/* Save Button */}
             <button
                 onClick={handleSave}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
             >
                 Save Group
             </button>

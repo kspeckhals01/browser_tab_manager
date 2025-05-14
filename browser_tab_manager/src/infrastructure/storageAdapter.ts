@@ -26,23 +26,23 @@ import { Tab } from '../domain/Tab';
 import { UserTier, SavedSession, TabGroup } from '../types/types'
 import { validateUserTier } from '../utils/validateUserTier';
 import { supabase } from '../lib/supabase';
-
-
+import { IS_PRO_ENABLED } from '../config';
 
 export async function getStorageAdapter() {
     const tier: UserTier = await validateUserTier(); 
     console.log('[getStorageAdapter] tier from validateUserTier:', tier);
     const isPro = tier === 'pro';
     const isExpired = tier === 'expired';
+  
 
     return {
         // SESSIONS
         getAllSessions: async () => {
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 return await getAllSessionsFromSupabase();
             }
 
-            if (isExpired) {
+            if (IS_PRO_ENABLED && isExpired) {
                 const [cloud, local] = await Promise.all([
                     getAllSessionsFromSupabase(),
                     getAllLocalSessions()
@@ -53,7 +53,7 @@ export async function getStorageAdapter() {
             return await getAllLocalSessions();
         },
         getSessionCount: async () => {
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 const sessions = await getAllSessionsFromSupabase();
                 return sessions.length;
             }
@@ -70,7 +70,7 @@ export async function getStorageAdapter() {
             return sessions.length;
         },
         saveSession: async (name: string, tabs: Tab[]) => {
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 const result = await saveSessionToSupabase(name, tabs);
                 const user = await chrome.storage.local.get(['userId']);
 
@@ -96,38 +96,38 @@ export async function getStorageAdapter() {
         },
         deleteSession: async (sessionName: string) => {
             const { userId, tier } = await chrome.storage.local.get(['userId', 'tier']);
-            const isCloudUser = tier === 'pro' || tier === 'expired';
+            const isCloudUser = IS_PRO_ENABLED && (tier === 'pro' || tier === 'expired');
 
-            const [cloudSessions, localSessions] = await Promise.all([
-                getAllSessionsFromSupabase(),
-                getAllLocalSessions()
-            ]);
-
-            const inSupabase = cloudSessions.some(s => s.name === sessionName);
+            const localSessions = await getAllLocalSessions();
             const inLocal = localSessions.some(s => s.name === sessionName);
 
-            if (userId && isCloudUser && inSupabase) {
-                const result = await deleteSessionFromSupabase(sessionName, userId);
+            if (IS_PRO_ENABLED && isCloudUser && userId) {
+                const cloudSessions = await getAllSessionsFromSupabase();
+                const inSupabase = cloudSessions.some(s => s.name === sessionName);
 
-                if (result === 'deleted') {
-                    await decrementSessionsUsed(userId);
-                    return 'cloud';
+                if (inSupabase) {
+                    const result = await deleteSessionFromSupabase(sessionName, userId);
+                    if (result === 'deleted') {
+                        await decrementSessionsUsed(userId);
+                        return 'cloud';
+                    }
+                    return 'not_found';
                 }
+            }
 
-                return 'not_found';
-            } else if (inLocal) {
+            if (inLocal) {
                 await deleteLocalSession(sessionName);
                 return 'local';
-            } else {
-                console.warn(`Session "${sessionName}" not found in local or Supabase.`);
-                return 'not_found';
             }
+
+            console.warn(`Session "${sessionName}" not found in local or Supabase.`);
+            return 'not_found';
         },
 
 
         // GROUPS
         getAllGroups: async () => {
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 return await getAllGroupsFromSupabase();
             }
 
@@ -142,7 +142,7 @@ export async function getStorageAdapter() {
             return await getAllLocalGroups();
         },
         getGroupCount: async () => {
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 const groups = await getAllGroupsFromSupabase();
                 return groups.length;
             }
@@ -165,7 +165,7 @@ export async function getStorageAdapter() {
                 tabs
             };
 
-            if (isPro) {
+            if (IS_PRO_ENABLED && isPro) {
                 const result = await saveGroupToSupabase(name, tabs);
                 const { userId } = await chrome.storage.local.get(['userId']);
 
@@ -190,6 +190,13 @@ export async function getStorageAdapter() {
             const isPro = tier === 'pro';
             const isExpired = tier === 'expired';
 
+            // If Pro features are disabled, always delete from local
+            if (!IS_PRO_ENABLED) {
+                await deleteLocalGroup(groupName);
+                return 'local';
+            }
+
+            // Otherwise, handle cloud/local deletion based on tier and group location
             const [cloudGroups, localGroups] = await Promise.all([
                 getAllGroupsFromSupabase(),
                 getAllLocalGroups()
@@ -225,7 +232,7 @@ export async function getStorageAdapter() {
             const isPro = tier === 'pro';
             const isExpired = tier === 'expired';
 
-            if (isPro || isExpired) {
+            if (IS_PRO_ENABLED && (isPro || isExpired)) {
                 // Supabase logic
                 const { error } = await supabase
                     .from('groups')
@@ -250,7 +257,7 @@ export async function getStorageAdapter() {
             const isPro = tier === 'pro';
             const isExpired = tier === 'expired';
 
-            if (isPro || isExpired) {
+            if (IS_PRO_ENABLED && (isPro || isExpired))  {
                 const { data, error } = await supabase
                     .from('groups')
                     .select('id, tabs')
@@ -301,14 +308,20 @@ export async function getStorageAdapter() {
 export async function getUserTier(): Promise<UserTier> {
     const userId = (await chrome.storage.local.get(['userId'])).userId;
 
-    if (!userId) return 'free'; // fallback
+    if (!userId) return 'free'; // fallback if no login
+
+    if (!IS_PRO_ENABLED) {
+        await chrome.storage.local.set({ tier: 'free' });
+        return 'free';
+    }
 
     const profile = await getUserProfile(userId);
 
-    const tier: UserTier = profile?.tier ?? 'free';
+    if (profile && profile.tier) {
+        await chrome.storage.local.set({ tier: profile.tier });
+        return profile.tier;
+    }
 
-    // Update localStorage with accurate tier
-    await chrome.storage.local.set({ tier });
-
-    return tier;
+    await chrome.storage.local.set({ tier: 'expired' });
+    return 'expired';
 }

@@ -9,5 +9,5 @@ export async function upgradeToPro() {
         throw new Error('Authentication failed: ' + error.message);
     }
 
-    return data; // Will redirect the user
+    return data; 
 }

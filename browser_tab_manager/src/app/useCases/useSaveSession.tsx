@@ -20,7 +20,7 @@ export default function useSaveSession() {
                 }
             }
 
-            const result = await storage.saveSession(name, tabs); // already returns correct string
+            const result = await storage.saveSession(name, tabs);
             return result;
         } catch (err) {
             console.error('[useSaveSession] Failed to save session:', err);

@@ -10,6 +10,8 @@ import { getAllLocalSessions } from '../../infrastructure/localTabStorage';
 import { getAllSessionsFromSupabase } from '../../infrastructure/supabaseTabStorage';
 import { validateUserTier } from '../../utils/validateUserTier';
 import { getUserTier } from '../../infrastructure/storageAdapter';
+import SessionNameModal from '../components/SessionNameModal';
+import { IS_PRO_ENABLED } from '../../config';
 
 
 
@@ -23,7 +25,9 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
     const [tier, setTier] = useState<'free' | 'pro' | 'expired'>('free');
     const { enabled: darkMode, toggle: toggleDarkMode } = useDarkMode();
     const saveSession = useSaveSession();
-    const [ isloggedIn, setIsLoggedIn ] = useState<boolean>(false);
+    const [isloggedIn, setIsLoggedIn] = useState<boolean>(false);
+    const [showModal, setShowModal] = useState(false);
+    const [pendingSessionName, setPendingSessionName] = useState<string | null>(null);
 
 
     const getIconForTier = (tier: string) => {
@@ -61,13 +65,16 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
         return () => clearInterval(interval);
     }, [tier]);
 
-    const handleSaveSession = async () => {
-        const name = prompt('Name your session:');
+    const handleSaveSession = () => {
+        setShowModal(true);
+    };
+
+    const handleModalSave = async (name: string) => {
+        setShowModal(false);
         if (!name) return;
 
         try {
             const tier = await validateUserTier();
-
             let totalSessions = 0;
 
             if (tier === 'free') {
@@ -75,7 +82,7 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
                 totalSessions = local.length;
 
                 if (totalSessions >= 5) {
-                    toast.error('Free users can only save up to 5 sessions. Upgrade to Pro to unlock unlimited saves.');
+                    toast.error('Free users can only save up to 5 sessions.');
                     return;
                 }
             }
@@ -88,13 +95,12 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
                 totalSessions = local.length + cloud.length;
 
                 if (totalSessions >= 5) {
-                    toast.error('You’ve reached your 5-session limit. Delete an old session or upgrade to Pro.');
+                    toast.error('You’ve reached your 5-session limit.');
                     return;
                 }
             }
 
             const result = await saveSession(name);
-
             switch (result) {
                 case 'cloud':
                     toast.success(`Session "${name}" saved to the cloud!`);
@@ -110,12 +116,11 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
                     break;
                 case 'error':
                 default:
-                    toast.error('Failed to save session. Please try again.');
+                    toast.error('Failed to save session.');
             }
-
         } catch (error) {
             console.error('[handleSaveSession] Error:', error);
-            toast.error(error instanceof Error ? error.message : 'Failed to save session.');
+            toast.error('Error saving session.');
         }
     };
 
@@ -124,6 +129,11 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
     };
 
     const handleSmartGroup = () => {
+        if (!IS_PRO_ENABLED) {
+            toast.info('Smart Grouping is a Pro feature and will be available soon!');
+            return;
+        }
+
         toast('Enable Smart Grouping?', {
             description: 'Tab titles and URLs may be analyzed by AI (never content or private data).',
             action: {
@@ -152,7 +162,7 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
                 {currentView !== 'main' && (
                     <button
                         onClick={() => onNavigate('main')}
-                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        className="p-1 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                         title="Go Back"
                     >
                         <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
@@ -168,76 +178,86 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
             <div className="flex items-center gap-1">
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
-                    <button className="text-gray-900 dark:text-gray-100 hover:text-black dark:hover:text-white transition"
+                        <button className="p-1 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                         aria-label="Menu">
                         <HamburgerMenuIcon className="w-5 h-5" />
                     </button>
                 </DropdownMenu.Trigger>
                 
-                <DropdownMenu.Content className="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-md p-2 text-sm min-w-[180px]">
-                    <DropdownMenu.Item
-                        onSelect={() => onNavigate('groups')}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <Folder className="w-4 h-4 text-yellow-500" />
-                        View Saved Groups
-                    </DropdownMenu.Item>
+                    <DropdownMenu.Content className="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-md p-2 text-sm min-w-[180px]">
+                        {/* VIEW SECTION */}
+                        <DropdownMenu.Item
+                            onSelect={handleViewSavedSessions}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <Folder className="w-4 h-4 text-yellow-500" />
+                            View Saved Sessions
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                            onSelect={() => onNavigate('groups')}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <Folder className="w-4 h-4 text-yellow-500" />
+                            View Saved Groups
+                        </DropdownMenu.Item>
 
-                    <DropdownMenu.Item
-                        onSelect={handleViewSavedSessions}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <Save className="w-4 h-4 text-blue-500" />
-                        View Saved Sessions
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                        onSelect={handleSaveGroupView}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <Save className="w-4 h-4 text-blue-500" />
-                        Save Groups
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                        onSelect={handleSmartGroup}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <Brain className="w-4 h-4 text-pink-500" />
-                        AI Smart Grouping
-                    </DropdownMenu.Item>
 
-                    <DropdownMenu.Separator className="my-1 border-t border-gray-300 dark:border-gray-600" />
+                        <DropdownMenu.Separator className="my-1 border-t border-gray-300 dark:border-gray-600" />
 
-                    <DropdownMenu.Item
-                        onSelect={handleSaveSession}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <Save className="w-4 h-4 text-blue-500" />
-                        Save Current Tabs
-                    </DropdownMenu.Item>
+                        {/* SAVE SECTION */}
+                        <DropdownMenu.Item
+                            onSelect={handleSaveSession}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <Save className="w-4 h-4 text-blue-500" />
+                            Save Current Tabs
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                            onSelect={handleSaveGroupView}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <Save className="w-4 h-4 text-blue-500" />
+                            Save Groups
+                        </DropdownMenu.Item>
 
-                    
-                    <DropdownMenu.Separator className="my-1 border-t border-gray-300 dark:border-gray-600" />
+                        <DropdownMenu.Separator className="my-1 border-t border-gray-300 dark:border-gray-600" />
 
-                    <DropdownMenu.Item
-                        onSelect={toggleDarkMode}
-                        className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                        <span className="w-4 h-4 text-purple-500">
-                            {darkMode ? '🌙' : '☀️'}
-                        </span>
-                        {darkMode ? 'Disable Dark Mode' : 'Enable Dark Mode'}
-                    </DropdownMenu.Item>
-                </DropdownMenu.Content>
+                        {/* AI FEATURE */}
+                        <DropdownMenu.Item
+                            onSelect={handleSmartGroup}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <Brain className="w-4 h-4 text-pink-500" />
+                            AI Smart Grouping
+                        </DropdownMenu.Item>
+
+                        <DropdownMenu.Separator className="my-1 border-t border-gray-300 dark:border-gray-600" />
+
+                        {/* DARK MODE */}
+                        <DropdownMenu.Item
+                            onSelect={toggleDarkMode}
+                            className="flex items-center gap-2 px-2 py-1 rounded text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                            <span className="w-4 h-4 text-purple-500">
+                                {darkMode ? '🌙' : '☀️'}
+                            </span>
+                            {darkMode ? 'Disable Dark Mode' : 'Enable Dark Mode'}
+                        </DropdownMenu.Item>
+                    </DropdownMenu.Content>
             </DropdownMenu.Root>
                 <button
                     onClick={() => onNavigate('account')}
-                    className="text-gray-900 dark:text-gray-100 hover:text-black dark:hover:text-white transition"
+                    className="p-1 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                     title="View account & subscription"
                 >
                     <UserIcon className="w-5 h-5 text-green-500" />
                 </button>
             </div>
-
+            <SessionNameModal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                onSave={handleModalSave}
+            />
         </div>
     );
 }

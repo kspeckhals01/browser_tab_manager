@@ -76,13 +76,15 @@ export default function SavedSessionsView() {
                     No sessions saved yet.
                 </p>
             ) : (
-                <>
-                    {renderHeader()}
-
+                    <>
+                        <div className="mb-2">
+                            {renderHeader()}
+                    </div>
+                        <div className="space-y-3">
                     {sessions.map((session) => (
                         <div
                             key={session.name}
-                            className="p-3 border rounded bg-white dark:bg-gray-800 shadow hover:bg-gray-50 dark:hover:bg-gray-700 transition relative"
+                            className="p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition relative"
                         >
                             <div
                                 className="flex items-center justify-between cursor-pointer"
@@ -99,10 +101,10 @@ export default function SavedSessionsView() {
                                         e.stopPropagation();
                                         handleDelete(session.name);
                                     }}
-                                    className="text-red-500 hover:text-red-700 p-1"
+                                    className="p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                                     title="Delete session"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4 text-red-500" />
                                 </button>
                             </div>
 
@@ -123,7 +125,9 @@ export default function SavedSessionsView() {
                                 </div>
                             )}
                         </div>
+                        
                     ))}
+                        </div>
                 </>
             )}
         </div>

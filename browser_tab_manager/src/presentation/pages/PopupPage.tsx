@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import SearchBar from '../components/SearchBar';
 import TabList from '../components/TabList';
 import { useFilteredTabs } from '../../app/useCases/useFilteredTabs';
@@ -9,7 +9,6 @@ import SaveGroupView from '../views/SaveGroupView';
 import AccountPage from '../pages/AccountPage';
 //import UpgradePage from '../presentation/pages/UpgradePage';
 import SmartGroupingPage from '../pages/SmartGroupingPage';
-
 
 export default function PopupPage() {
   const [search, setSearch] = useState('');

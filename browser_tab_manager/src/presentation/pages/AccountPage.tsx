@@ -6,6 +6,7 @@ import { getDaysRemaining } from '../../utils/subscriptionUtils';
 import { toast } from 'sonner';
 import type { User } from '@supabase/supabase-js';
 import { migrateLocalGroupsToCloud } from '../../utils/migrateLocalGroupsToCloud'
+import { IS_PRO_ENABLED } from '../../config';
 
 type Props = {
     onUpgrade: () => void;
@@ -17,67 +18,87 @@ export default function AccountPage({ onUpgrade }: Props) {
     const [daysLeft, setDaysLeft] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [emailInput, setEmailInput] = useState('');
-    chrome.storage.local.get('loginSuccess').then(({ loginSuccess }) => {
-        console.log('[AccountPage] loginSuccess value on mount:', loginSuccess);
-    });
     useEffect(() => {
         const init = async () => {
-            // Always check for loginSuccess when popup opens
             const { loginSuccess } = await chrome.storage.local.get('loginSuccess');
+            const shouldShowWelcome = loginSuccess === true || loginSuccess === 'true';
 
             if (loginSuccess) {
-                console.log('[AccountPage] loginSuccess detected. Attempting to remove...');
-
-                await new Promise<void>((resolve, reject) => {
-                    chrome.storage.local.remove('loginSuccess', () => {
-                        if (chrome.runtime.lastError) {
-                            console.error('[AccountPage] Failed to remove loginSuccess:', chrome.runtime.lastError);
-                            reject(chrome.runtime.lastError);
-                        } else {
-                            console.log('[AccountPage] loginSuccess successfully removed');
-                            resolve();
-                        }
-                    });
-                });
+                await chrome.storage.local.remove('loginSuccess');
             }
 
             const { data: { session }, error } = await supabase.auth.getSession();
 
-            if (error) {
-                console.error('[AccountPage] error getting session:', error);
-                setLoading(false);
-                return;
-            }
-
-            const user = session?.user;
-            setUser(user ?? null);
-            if (!user) {
+            if (error || !session?.user) {
+                setUser(null);
                 setProfile(null);
                 setLoading(false);
                 return;
             }
 
+            const user = session.user;
+            setUser(user);
+
             try {
                 const profile = await getUserProfile(user.id);
+
+                if (!profile) {
+                    // New user, no profile yet
+                    await chrome.storage.local.set({
+                        userId: user.id,
+                        tier: 'free',
+                    });
+                    toast.info("You're new here! Sign up for Tabvana Pro to enable cloud sync.");
+                    setProfile(null); // triggers "Sign up for Pro" UI
+                    return;
+                }
+
+                // Profile found — check for expired
+                if (profile.tier === 'expired') {
+                    await chrome.storage.local.set({
+                        userId: user.id,
+                        tier: 'expired',
+                    });
+                    toast.warning("Your Pro subscription has expired. Cloud sync is paused.");
+                } else {
+                    // Active user (free or pro)
+                    await chrome.storage.local.set({
+                        userId: user.id,
+                        tier: profile.tier ?? 'free',
+                    });
+
+                    if (shouldShowWelcome) {
+                        toast.success('Welcome back, ' + user.email);
+                    }
+
+                    if (profile.subscription_cancelled_at) {
+                        const end = profile.subscription_ends_at
+                            ? new Date(profile.subscription_ends_at).toLocaleDateString()
+                            : 'soon';
+
+                        const canceled = new Date(profile.subscription_cancelled_at).toLocaleDateString();
+                        toast.info(`You cancelled your subscription on ${canceled}. Access continues until ${end}.`);
+                    }
+                }
+
                 setProfile(profile);
 
-                const subEnd = profile?.subscription_ends_at || profile?.trial_ends_at;
-                if (subEnd) setDaysLeft(getDaysRemaining(subEnd));
-
-                await chrome.storage.local.set({
-                    userId: user.id,
-                    tier: profile?.tier ?? 'free',
-                });
-
-                toast.success('Welcome back, ' + user.email);
+                const subEnd = profile.subscription_ends_at || profile.trial_ends_at;
+                if (subEnd) {
+                    const days = getDaysRemaining(subEnd);
+                    setDaysLeft(Math.max(0, days ?? 0));
+                }
             } catch (err) {
                 console.error('[AccountPage] error fetching profile:', err);
-                toast.error('Error loading account profile');
+
+                await chrome.storage.local.set({ tier: 'expired' });
+                toast.warning(
+                    'Your session may have expired. Cloud syncing is paused, but you can still view your saved data.'
+                );
             } finally {
                 setLoading(false);
             }
         };
-
 
         init();
     }, []);
@@ -119,10 +140,55 @@ export default function AccountPage({ onUpgrade }: Props) {
 
                 setLoading(false);
             }
-        }, 1000); // Poll every 500ms
+        }, 1000); // Poll every 1000ms
 
         return () => clearInterval(poll);
     }, []);
+    if (!IS_PRO_ENABLED) {
+        return (
+            <div className="p-4 animate-slide-in h-full flex flex-col">
+                <div className="mb-4">
+                    <h2 className="text-lg font-semibold text-center text-gray-700 dark:text-gray-300">
+                        Tabvana Free Edition
+                    </h2>
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                    You're using the free version of Tabvana.
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    Pro features launching soon:
+                </p>
+                <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Cloud backup and sync</li>
+                    <li>Smart AI tab grouping</li>
+                    <li>Unlimited sessions and groups</li>
+                    <li>Cross-browser sync (Chrome, Firefox, Edge)</li>
+                </ul>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                    Estimated price: <strong>$4.99/month</strong>
+                </p>
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                    Stay tuned for the next release!
+                </p>
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
+                    Questions, bugs, or feature ideas? <br />
+                    <a
+                        href="mailto:baconneckapplications@gmail.com"
+                        className="text-blue-600 dark:text-blue-400 underline"
+                    >
+                        Contact us
+                    </a>
+                </p>
+            </div>
+        );
+    }
+
+
+    chrome.storage.local.get('loginSuccess').then(({ loginSuccess }) => {
+        console.log('[AccountPage] loginSuccess value on mount:', loginSuccess);
+    });
+
+   
 
 
 
@@ -158,7 +224,7 @@ export default function AccountPage({ onUpgrade }: Props) {
                     supabase.auth.getUser().then(({ data }) => {
                         if (data?.user) {
                             console.log('[auth] Logged in despite error. User:', data.user.email);
-                            // You can toast success here if desired
+                            
                         } else {
                             toast.error('Login was cancelled or failed.');
                         }
@@ -167,7 +233,7 @@ export default function AccountPage({ onUpgrade }: Props) {
                     return;
                 }
 
-                console.log('✅ Redirect successful:', responseUrl);
+                console.log('Redirect successful:', responseUrl);
             }
         );
 
@@ -239,7 +305,7 @@ export default function AccountPage({ onUpgrade }: Props) {
 
                     if (updated?.tier === 'pro') {
                         await migrateLocalGroupsToCloud();
-                        toast.success('You’re now a Pro user! 🎉 Your groups have been synced to the cloud.');
+                        toast.success('You’re now a Pro user! Your groups have been synced to the cloud.');
                     } else {
                         toast.info('Upgrade not yet completed. Please wait or try again.');
                     }
@@ -359,18 +425,40 @@ export default function AccountPage({ onUpgrade }: Props) {
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                         <strong>Email:</strong> {profile.email}
                     </p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                        <strong>Plan:</strong> {(profile.tier ?? 'free').toUpperCase()}
-                    </p>
-                    {daysLeft !== null && (
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {profile?.trial_ends_at
-                                ? `Trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`
-                                : profile?.subscription_ends_at
-                                    ? `Renews in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}(${new Date(profile.subscription_ends_at).toLocaleDateString()})`
-                                    : null}
-                        </p>
-                    )}
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    <strong>Plan:</strong> {(profile.tier ?? 'free').toUpperCase()}
+                                </p>
+
+                                {daysLeft !== null && (
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                        {profile.tier === 'pro' && profile.subscription_ends_at ? (
+                                            profile.subscription_cancelled_at ? (
+                                                <>
+                                                    You canceled on{' '}
+                                                    {new Date(profile.subscription_cancelled_at).toLocaleDateString()}. Access continues until{' '}
+                                                    {new Date(profile.subscription_ends_at).toLocaleDateString()}.
+                                                </>
+                                            ) : profile.subscription_paused_at ? (
+                                                <>
+                                                    Your subscription was paused on{' '}
+                                                    {new Date(profile.subscription_paused_at).toLocaleDateString()}. Access continues until{' '}
+                                                    {new Date(profile.subscription_ends_at).toLocaleDateString()}.
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Subscription renews in {daysLeft} day{daysLeft !== 1 ? 's' : ''} (
+                                                    {new Date(profile.subscription_ends_at).toLocaleDateString()}).
+                                                </>
+                                            )
+                                        ) : profile.tier === 'free' && profile.trial_ends_at ? (
+                                            daysLeft > 0 ? (
+                                                <>Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</>
+                                            ) : (
+                                                <>Your free trial has ended.</>
+                                            )
+                                        ) : null}
+                                    </p>
+                                )}
 
                     <button
                         onClick={handleManageSubscription}

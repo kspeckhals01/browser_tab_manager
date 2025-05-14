@@ -89,30 +89,33 @@ export default function GroupsView() {
                         <div className="flex justify-between items-center">
                             <div>
                                 {editingGroupId === group.name ? (
-                                    <div className="flex gap-2 items-center">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                         <input
                                             value={newName}
                                             onChange={(e) => setNewName(e.target.value)}
-                                            className="text-sm border px-2 py-1 rounded"
+                                            className="flex-1 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Enter group name"
                                             autoFocus
                                         />
-                                        <button
-                                            type="button"
-                                            className="text-blue-600 text-xs"
-                                            onClick={() => handleRenameGroup(group.name)}
-                                        >
-                                            Save
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="text-gray-500 text-xs"
-                                            onClick={() => {
-                                                setEditingGroupId(null);
-                                                setNewName('');
-                                            }}
-                                        >
-                                            Cancel
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                className="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition"
+                                                onClick={() => handleRenameGroup(group.name)}
+                                            >
+                                                Save
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="px-3 py-1.5 text-xs font-medium rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500 transition"
+                                                onClick={() => {
+                                                    setEditingGroupId(null);
+                                                    setNewName('');
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <h2
@@ -136,26 +139,29 @@ export default function GroupsView() {
                                     type="button"
                                     onClick={() => handleOpenGroup(group.tabs)}
                                     title="Open all"
+                                    className="p-1 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                                 >
-                                    <ExternalLink className="w-4 h-4 text-blue-500 hover:text-blue-700" />
+                                    <ExternalLink className="w-4 h-4 text-blue-500" />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => toggleGroup(group.name)}
                                     title="Toggle tabs"
+                                    className="p-1 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                                 >
                                     {expandedGroup === group.name ? (
-                                        <ChevronUp className="w-4 h-4 text-gray-500" />
+                                        <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-300" />
                                     ) : (
-                                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-300" />
                                     )}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => handleDeleteGroup(group.name)}
                                     title="Delete group"
+                                    className="p-1 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                                 >
-                                    <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                                    <Trash2 className="w-4 h-4 text-red-500" />
                                 </button>
                             </div>
                         </div>
@@ -174,10 +180,10 @@ export default function GroupsView() {
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveTab(group.name, tab.id!)}
-                                            className="text-red-400 hover:text-red-600"
                                             title="Remove tab"
+                                            className="p-1 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-3 h-3 text-red-500" />
                                         </button>
                                     </li>
                                 ))}

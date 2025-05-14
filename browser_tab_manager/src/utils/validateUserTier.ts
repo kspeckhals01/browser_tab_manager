@@ -1,19 +1,31 @@
 // src/utils/validateUserTier.ts
 import { getUserProfile } from '../infrastructure/supabaseTabStorage';
 import { UserTier } from '../types/types';
+import { IS_PRO_ENABLED } from '../config';
 
 export async function validateUserTier(): Promise<UserTier> {
-    const result = await chrome.storage.local.get(['userId']);
-    const userId = result.userId;
+    const { userId } = await chrome.storage.local.get(['userId']);
 
-    if (!userId) {
+    if (!userId) return 'free';
+
+    if (!IS_PRO_ENABLED) {
+        await chrome.storage.local.set({ tier: 'free' });
         return 'free';
     }
 
-    const profile = await getUserProfile(userId);
+    let profile;
+    try {
+        profile = await getUserProfile(userId);
+    } catch (err) {
+        console.error('[validateUserTier] Failed to fetch user profile:', err);
+        await chrome.storage.local.set({ tier: 'expired' });
+        return 'expired';
+    }
 
     if (!profile) {
-        return 'free';
+        console.log('[validateUserTier] No profile found — assuming expired');
+        await chrome.storage.local.set({ tier: 'expired' });
+        return 'expired';
     }
 
     const now = new Date();
